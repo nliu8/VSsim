@@ -3,32 +3,32 @@
 
 #include <ross.h>
 
-#define MEAN_DEPARTURE 30.0
-#define MEAN_LAND 10.0
-#define GROUP_SIZE 4
-#define ROUTING_DELAY 500
-#define N_NODES 16
-#define N_ROUTERS 4
+#define N_CLIENTS 4
+#define N_NAMENODES 1
+#define N_DATANODES 8
+#define MAX_N_STRIPES 4
+
+#define MEAN_REQUEST 30
 
 typedef enum hdfs_event_t hdfs_event_t;
 
 enum hdfs_event_t
 {
-	HDFS_MSG_SEND, 
-	HDFS_MSG_RECV,
-	HDFS_MSG_ROUTE
+  HDFS_WRITE_START,
+  HDFS_WRITE_SET_UP,
+  HDFS_WRITE_SET_UP_ACK,
+  HDFS_WRITE_DATA_SEND,
+  HDFS_WRITE_DATA_SEND_ACK,
+  HDFS_WRITE_CLOSE,
+  HDFS_WRITE_CLOSE_ACK
 };
 
 typedef struct
 {
   int group_master;
   int logical_group_id;
+  int rand_datanode_id[MAX_N_STRIPES];
 
-	int		landings;
-	int		planes_in_the_sky;
-	int		planes_on_the_ground;
-	tw_stime	waiting_time;
-	tw_stime	furthest_flight_landing;
 }hdfs_state;
 
 typedef struct
@@ -43,14 +43,10 @@ typedef struct
 typedef struct
 {
   msg_body msg_core;
-  tw_stime waiting_time;
-  tw_stime saved_furthest_flight_landing;
 }hdfs_message;
 
 static tw_lpid	 nlp_per_pe = 1024;
-static tw_stime	 mean_flight_time = 1;
 static int	 opt_mem = 1000;
 static int	 planes_per_hdfs = 1;
-static tw_stime	 wait_time_avg = 0.0;
 
 #endif
