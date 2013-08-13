@@ -68,7 +68,7 @@ init(hdfs_state * s, tw_lp * lp)
   s->data_node_ID = tw_rand_integer(lp->rng, 1, N_DATANODES) + N_CLIENTS + N_NAMENODES - 1;
 
 
-  printf("I am node %d and my associated data node ID is %d\n",lp->gid,s->data_node_ID);
+  //printf("I am node %d and my associated data node ID is %d\n",lp->gid,s->data_node_ID);
 
   if (lp->gid < N_CLIENTS)
     {
@@ -89,6 +89,51 @@ init(hdfs_state * s, tw_lp * lp)
 }
 
 void
+event_logging(hdfs_message * msg, tw_lp * lp)
+{
+  switch(msg->msg_core.type)
+    {
+    case HDFS_WRITE_START:
+      {
+	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",234,"EventType:","HDFS_WRITE_START","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_SET_UP:
+      {
+	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SET_UP","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_SET_UP_ACK:
+      {
+	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SET_UP_ACK","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_DATA_SEND:
+      {
+	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_SEND","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_DATA_RECV:
+      {
+	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_RECV","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_DATA_SEND_ACK:
+      {
+	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_SEND_ACK","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_DONE:
+      {
+	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DONE","Vtime: ",tw_now(lp));
+	break;
+      }
+    default:
+      printf("\t%-4s","Unknown event type, please check! ... ... ... ...\n");
+    }
+}
+
+void
 event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 {
   int rand_result;
@@ -97,12 +142,14 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
   tw_event *e;
   hdfs_message *m;
 
+  event_logging(msg, lp);
+
   switch(msg->msg_core.type)
     {
       
     case HDFS_WRITE_START:
       {
-	printf("Message %d arrive at send\n", msg->msg_core.src_pid[0]);
+
 	e = tw_event_new(msg->msg_core.dst_pid, 10, lp);
 	m = tw_event_data(e);
 	m->msg_core = msg->msg_core;
@@ -117,7 +164,7 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	// This message is received at Name Node
 	if (lp->gid == N_CLIENTS)
 	  {
-	    printf("Hey I am message %d  and my dest is %d\n",lp->gid,msg->msg_core.src_pid[0]);
+
 	    e = tw_event_new(msg->msg_core.src_pid[0], 10, lp);
 	    m = tw_event_data(e);
 	    m->msg_core = msg->msg_core;
@@ -134,7 +181,6 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 
     case HDFS_WRITE_SET_UP_ACK:
       {
-	printf("At %d one message RECV from %d\n", lp->gid, msg->msg_core.src_lid);
 
 	e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, WRITE_SET_UP_PREP_TIME), lp);
 	m = tw_event_data(e);
