@@ -16,6 +16,7 @@
 
 #define PATH_DEPTH 8
 #define MSG_SRC_NULL -1
+#define MSG_DST_NULL -1
 
 #define MEAN_REQUEST 30
 
@@ -26,8 +27,11 @@ enum hdfs_event_t
   HDFS_WRITE_START,
   HDFS_WRITE_SET_UP,
   HDFS_WRITE_SET_UP_ACK,
-  HDFS_WRITE_DATA_SEND,
 
+  HDFS_WRITE_SOCKET_SET_UP,
+  HDFS_WRITE_SOCKET_SET_UP_ACK,
+
+  HDFS_WRITE_DATA_SEND,
   HDFS_WRITE_DATA_RECV,
   HDFS_WRITE_DATA_SEND_ACK,
   HDFS_WRITE_DONE,
@@ -54,9 +58,9 @@ typedef struct
 {
   int replica_counter;
   int dst_lid;
-  int dst_pid;
   int src_lid;
 
+  int dst_pid[PATH_DEPTH];
   int src_pid[PATH_DEPTH];
   int N_pkt;
 

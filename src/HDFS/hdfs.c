@@ -6,44 +6,6 @@ mapping(tw_lpid gid)
   return (tw_peid) gid / g_tw_nlp;
 }
 
-/* inline void prep_src(msg_body *msg) */
-/* { */
-/*   int i; */
-/*   for (i=0;i<PATH_DEPTH;i++) */
-/*     msg->src_pid[i]=MSG_SRC_NULL; */
-/* } */
-
-/* inline void pop_src(msg_body *msg, int * id) */
-/* { */
-/*   int i=0 ; */
-/*   if (msg->src_pid[0]==MSG_SRC_NULL) */
-/*     printf("No src ID found, nothing to pop, bye\n"); */
-/*   else */
-/*     while(msg->src_pid[i] != MSG_SRC_NULL) */
-/*       i++; */
-/*   *id = msg->src_pid[i-1]; */
-/*   msg->src_pid[i-1]=MSG_SRC_NULL; */
-/* } */
-
-/* inline void push_src(msg_body *msg, int * id) */
-/* { */
-/*   int i=0 ; */
-/*   if (msg->src_pid[PATH_DEPTH-1] != MSG_SRC_NULL) */
-/*     printf("Max stack size reached, please increase PATH_DEPTH\n"); */
-/*   else */
-/*     while( msg->src_pid[i] != MSG_SRC_NULL ) */
-/*       i++; */
-/*   msg->src_pid[i] = *id; */
-/* } */
-
-/* inline void show_src(msg_body *msg) */
-/* { */
-/*   int i; */
-/*   for (i=0;i<PATH_DEPTH;i++) */
-/*     printf("Src stack [%d] is %d\n",i,msg->src_pid[i]); */
-/* } */
-
-
 void
 init(hdfs_state * s, tw_lp * lp)
 {
@@ -89,6 +51,7 @@ init(hdfs_state * s, tw_lp * lp)
   /*     printf("I am node %d and my associated data node ID is %d\n",lp->gid,s->data_node_ID[i]); */
   /*   } */
 
+  
   if (lp->gid < N_CLIENTS)
     {
       e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, MEAN_REQUEST), lp);
@@ -101,8 +64,8 @@ init(hdfs_state * s, tw_lp * lp)
       //show_src( &m->msg_core);
       // name node comes right after clients
       // name node Pid is N_CLIENTS
-      m->msg_core.dst_pid = N_CLIENTS;
-	
+      m->msg_core.dst_pid[0] = N_CLIENTS;
+
       tw_event_send(e);
     }
 }
@@ -110,7 +73,7 @@ init(hdfs_state * s, tw_lp * lp)
 void
 event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 {
-  int rand_result;
+  int rand_result, i;
   tw_lpid dest_lp;
   tw_stime ts;
   tw_event *e;
@@ -124,8 +87,7 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
       
     case HDFS_WRITE_START:
       {
-
-	e = tw_event_new(msg->msg_core.dst_pid, 10, lp);
+	e = tw_event_new(msg->msg_core.dst_pid[0], 10, lp);
 	m = tw_event_data(e);
 	m->msg_core = msg->msg_core;
 	m->msg_core.type = HDFS_WRITE_SET_UP;
@@ -139,7 +101,6 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	// This message is received at Name Node
 	if (lp->gid == N_CLIENTS)
 	  {
-
 	    e = tw_event_new(msg->msg_core.src_pid[0], 10, lp);
 	    m = tw_event_data(e);
 	    m->msg_core = msg->msg_core;
@@ -161,10 +122,78 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	m = tw_event_data(e);
 	m->msg_core = msg->msg_core;
 
-	m->msg_core.type = HDFS_WRITE_DATA_SEND;
-	tw_event_send(e);
+	//m->msg_core.type = HDFS_WRITE_DATA_SEND;
+	m->msg_core.type = HDFS_WRITE_SOCKET_SET_UP;
+	//pack dst data nodes ID to packet
+	prep_src(&m->msg_core);
+	prep_dst(&m->msg_core);
+	//show_dst(&m->msg_core);
+	for (i=0;i<N_REPLICA;i++)
+	  push_dst(&m->msg_core,&s->data_node_ID[i]);
+	//show_dst(&m->msg_core);
+	//pop_dst(&m->msg_core,&dest_lp);
+	//m->msg_core.replica_counter++;
 
+	tw_event_send(e);
 	break;
+      }
+
+    case HDFS_WRITE_SOCKET_SET_UP:
+      {
+	// if message still hasn't reached the deepest point in the path
+	// printf("msg->msg_core.replica_counter is %d\n",msg->msg_core.replica_counter);
+	if (msg->msg_core.replica_counter<N_REPLICA)
+	  {
+	    pop_dst(&(msg->msg_core),&dest_lp);
+	    msg->msg_core.replica_counter++;
+	    push_src(&(msg->msg_core),&lp->gid);
+
+	    e = tw_event_new(dest_lp, tw_rand_exponential(lp->rng, WRITE_SET_UP_PREP_TIME), lp);
+	    m = tw_event_data(e);
+	    m->msg_core = msg->msg_core;
+	    m->msg_core.type = HDFS_WRITE_SOCKET_SET_UP;
+	    tw_event_send(e);
+	    //printf("Appear in LP %d\n",lp->gid);
+	  }
+	else
+	  {
+	    msg->msg_core.replica_counter--;
+	    pop_src(&(msg->msg_core),&dest_lp);
+	    e = tw_event_new(dest_lp, tw_rand_exponential(lp->rng, WRITE_SET_UP_PREP_TIME), lp);
+	    m = tw_event_data(e);
+	    m->msg_core = msg->msg_core;
+	    m->msg_core.type = HDFS_WRITE_SOCKET_SET_UP_ACK;
+	    tw_event_send(e);
+
+	  }
+
+      }
+
+    case HDFS_WRITE_SOCKET_SET_UP_ACK:
+      {
+	if (msg->msg_core.replica_counter==0)
+	  {
+
+	    e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, WRITE_SET_UP_PREP_TIME), lp);
+	    m = tw_event_data(e);
+	    m->msg_core = msg->msg_core;
+	    m->msg_core.type = HDFS_WRITE_DATA_SEND;
+	    //tw_event_send(e);
+	    printf("LP %d Appear\n",lp->gid);
+
+	  }
+	else
+	  {
+	    msg->msg_core.replica_counter--;
+	    pop_src(&(msg->msg_core),&dest_lp);
+	    e = tw_event_new(dest_lp, tw_rand_exponential(lp->rng, WRITE_SET_UP_PREP_TIME), lp);
+	    m = tw_event_data(e);
+	    m->msg_core = msg->msg_core;
+	    m->msg_core.type = HDFS_WRITE_SOCKET_SET_UP_ACK;
+	    tw_event_send(e);
+
+	  }
+	
       }
 
     case HDFS_WRITE_DATA_SEND:
@@ -215,7 +244,7 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	s->pkt_recv_counter++;
 	if ( s->pkt_recv_counter == Write_Request_size/Pkt_size )
 	  {
-	    printf("Write finished at %d\n",lp->gid);
+	    //printf("Write finished at %d\n",lp->gid);
 	    /* // split request to packet */
 	    /* e = tw_event_new(msg_core.src_pid[0], Pkt_size/Buffer_Copy_rate, lp); */
 	    /* m = tw_event_data(e); */
@@ -254,7 +283,6 @@ void
 final(hdfs_state * s, tw_lp * lp)
 {
   fclose(s->logfile);
-  //wait_time_avg += ((s->waiting_time / (double) s->landings) / nlp_per_pe);
 }
 
 tw_lptype hdfs_lps[] =
