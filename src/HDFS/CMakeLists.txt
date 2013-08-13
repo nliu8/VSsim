@@ -1,6 +1,6 @@
 #INCLUDE_DIRECTORIES(${ROSS_SOURCE_DIR})
 
-SET(hdfs_srcs hdfs.c hdfs.h)
+SET(hdfs_srcs hdfs.c hdfs.h hdfs_logging.c hdfs_helper.c)
 
 SET( CMAKE_C_FLAGS "-DUSE_AVL_TREE -DAVL_NODE_COUNT=262144 -DRAND_NORMAL -DROSS_timing -DROSS_QUEUE_splay -DROSS_RAND_clcg4 -DROSS_NETWORK_mpi -DROSS_CLOCK_i386 -DROSS_GVT_mpi_allreduce -DARCH_i386"  )
 

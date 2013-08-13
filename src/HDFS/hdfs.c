@@ -6,48 +6,48 @@ mapping(tw_lpid gid)
   return (tw_peid) gid / g_tw_nlp;
 }
 
-inline void prep_src(msg_body *msg)
-{
-  int i;
-  for (i=0;i<PATH_DEPTH;i++)
-    msg->src_pid[i]=MSG_SRC_NULL;
-}
+/* inline void prep_src(msg_body *msg) */
+/* { */
+/*   int i; */
+/*   for (i=0;i<PATH_DEPTH;i++) */
+/*     msg->src_pid[i]=MSG_SRC_NULL; */
+/* } */
 
-inline void pop_src(msg_body *msg, int * id)
-{
-  int i=0 ;
-  if (msg->src_pid[0]==MSG_SRC_NULL)
-    printf("No src ID found, nothing to pop, bye\n");
-  else
-    while(msg->src_pid[i] != MSG_SRC_NULL)
-      i++;
-  *id = msg->src_pid[i-1];
-  msg->src_pid[i-1]=MSG_SRC_NULL;
-}
+/* inline void pop_src(msg_body *msg, int * id) */
+/* { */
+/*   int i=0 ; */
+/*   if (msg->src_pid[0]==MSG_SRC_NULL) */
+/*     printf("No src ID found, nothing to pop, bye\n"); */
+/*   else */
+/*     while(msg->src_pid[i] != MSG_SRC_NULL) */
+/*       i++; */
+/*   *id = msg->src_pid[i-1]; */
+/*   msg->src_pid[i-1]=MSG_SRC_NULL; */
+/* } */
 
-inline void push_src(msg_body *msg, int * id)
-{
-  int i=0 ;
-  if (msg->src_pid[PATH_DEPTH-1] != MSG_SRC_NULL)
-    printf("Max stack size reached, please increase PATH_DEPTH\n");
-  else
-    while( msg->src_pid[i] != MSG_SRC_NULL )
-      i++;
-  msg->src_pid[i] = *id;
-}
+/* inline void push_src(msg_body *msg, int * id) */
+/* { */
+/*   int i=0 ; */
+/*   if (msg->src_pid[PATH_DEPTH-1] != MSG_SRC_NULL) */
+/*     printf("Max stack size reached, please increase PATH_DEPTH\n"); */
+/*   else */
+/*     while( msg->src_pid[i] != MSG_SRC_NULL ) */
+/*       i++; */
+/*   msg->src_pid[i] = *id; */
+/* } */
 
-inline void show_src(msg_body *msg)
-{
-  int i;
-  for (i=0;i<PATH_DEPTH;i++)
-    printf("Src stack [%d] is %d\n",i,msg->src_pid[i]);
-}
+/* inline void show_src(msg_body *msg) */
+/* { */
+/*   int i; */
+/*   for (i=0;i<PATH_DEPTH;i++) */
+/*     printf("Src stack [%d] is %d\n",i,msg->src_pid[i]); */
+/* } */
 
 
 void
 init(hdfs_state * s, tw_lp * lp)
 {
-  int i;
+  int i,j,flag;
   tw_event *e;
   hdfs_message *m;
 
@@ -69,10 +69,25 @@ init(hdfs_state * s, tw_lp * lp)
 
   s->pkt_send_counter = 0;
   s->pkt_recv_counter = 0;
-  s->data_node_ID = tw_rand_integer(lp->rng, 1, N_DATANODES) + N_CLIENTS + N_NAMENODES - 1;
+  // select data node, no duplication
+  i = 0;
+  while (i<N_REPLICA)
+    {
+      flag = 0;
+      s->data_node_ID[i] = tw_rand_integer(lp->rng, 1, N_DATANODES) + N_CLIENTS + N_NAMENODES - 1;
+      for (j=0;j<i;j++)
+	{
+	  if (s->data_node_ID[i] == s->data_node_ID[j])
+	    flag = 1;
+	}
+      if (flag==0)
+	i++;
+    }
 
-
-  //printf("I am node %d and my associated data node ID is %d\n",lp->gid,s->data_node_ID);
+  /* for (i=0;i<N_REPLICA;i++) */
+  /*   { */
+  /*     printf("I am node %d and my associated data node ID is %d\n",lp->gid,s->data_node_ID[i]); */
+  /*   } */
 
   if (lp->gid < N_CLIENTS)
     {
@@ -90,100 +105,6 @@ init(hdfs_state * s, tw_lp * lp)
 	
       tw_event_send(e);
     }
-}
-
-void
-event_logging_f(hdfs_state *s, hdfs_message * msg, tw_lp * lp)
-{
-   
-  switch(msg->msg_core.type)
-    {
-    case HDFS_WRITE_START:
-      {
-	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_START","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_SET_UP:
-      {
-	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SET_UP","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_SET_UP_ACK:
-      {
-	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SET_UP_ACK","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_DATA_SEND:
-      {
-	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_SEND","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_DATA_RECV:
-      {
-	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_RECV","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_DATA_SEND_ACK:
-      {
-	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_SEND_ACK","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_DONE:
-      {
-	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DONE","Vtime: ",tw_now(lp));
-	break;
-      }
-    default:
-      fprintf(s->logfile,"\t%-4s","Unknown event type, please check! ... ... ... ...\n");
-    }
-
-}
-
-void
-event_logging(hdfs_state *s, hdfs_message * msg, tw_lp * lp)
-{
-
-  switch(msg->msg_core.type)
-    {
-    case HDFS_WRITE_START:
-      {
-	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_START","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_SET_UP:
-      {
-	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SET_UP","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_SET_UP_ACK:
-      {
-	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SET_UP_ACK","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_DATA_SEND:
-      {
-	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_SEND","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_DATA_RECV:
-      {
-	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_RECV","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_DATA_SEND_ACK:
-      {
-	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_SEND_ACK","Vtime: ",tw_now(lp));
-	break;
-      }
-    case HDFS_WRITE_DONE:
-      {
-	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DONE","Vtime: ",tw_now(lp));
-	break;
-      }
-    default:
-      printf("\t%-4s","Unknown event type, please check! ... ... ... ...\n");
-    }
-
 }
 
 void
@@ -262,7 +183,7 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 
 	    // each packet corresponds to a real send
 	    // pick random data node
-	    e = tw_event_new(s->data_node_ID, Pkt_size/Buffer_Copy_rate, lp);
+	    e = tw_event_new(s->data_node_ID[0], Pkt_size/Buffer_Copy_rate, lp);
             m = tw_event_data(e);
             m->msg_core = msg->msg_core;
 

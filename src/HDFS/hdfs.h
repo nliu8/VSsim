@@ -6,7 +6,7 @@
 #define N_CLIENTS 3
 #define N_NAMENODES 1
 #define N_DATANODES 8
-#define N_replica 3
+#define N_REPLICA 3
 
 #define MAX_N_STRIPES 4
 #define Write_Request_size 4 //MB
@@ -44,7 +44,7 @@ typedef struct
 
   int pkt_send_counter;
   int pkt_recv_counter;
-  int data_node_ID;
+  int data_node_ID[N_REPLICA];
 
   FILE * logfile;
 
@@ -52,11 +52,14 @@ typedef struct
 
 typedef struct
 {
+  int replica_counter;
   int dst_lid;
   int dst_pid;
   int src_lid;
+
   int src_pid[PATH_DEPTH];
   int N_pkt;
+
   int pkt_ID;
   hdfs_event_t type;
 }msg_body;
