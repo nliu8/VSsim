@@ -60,6 +60,10 @@ init(hdfs_state * s, tw_lp * lp)
     5 6 7 8 9 10 11 12 : data nodes
    */
 
+  char filename[32];
+  sprintf(filename,"log/vssim.log.%d",lp->gid);
+  s->logfile = fopen (filename,"w");
+
   //printf("Init, my id is %d\n",lp->gid);
   // each client initiate a write request
 
@@ -89,13 +93,61 @@ init(hdfs_state * s, tw_lp * lp)
 }
 
 void
-event_logging(hdfs_message * msg, tw_lp * lp)
+event_logging_f(hdfs_state *s, hdfs_message * msg, tw_lp * lp)
 {
+   
   switch(msg->msg_core.type)
     {
     case HDFS_WRITE_START:
       {
-	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",234,"EventType:","HDFS_WRITE_START","Vtime: ",tw_now(lp));
+	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_START","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_SET_UP:
+      {
+	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SET_UP","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_SET_UP_ACK:
+      {
+	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SET_UP_ACK","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_DATA_SEND:
+      {
+	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_SEND","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_DATA_RECV:
+      {
+	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_RECV","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_DATA_SEND_ACK:
+      {
+	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DATA_SEND_ACK","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_DONE:
+      {
+	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DONE","Vtime: ",tw_now(lp));
+	break;
+      }
+    default:
+      fprintf(s->logfile,"\t%-4s","Unknown event type, please check! ... ... ... ...\n");
+    }
+
+}
+
+void
+event_logging(hdfs_state *s, hdfs_message * msg, tw_lp * lp)
+{
+
+  switch(msg->msg_core.type)
+    {
+    case HDFS_WRITE_START:
+      {
+	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_START","Vtime: ",tw_now(lp));
 	break;
       }
     case HDFS_WRITE_SET_UP:
@@ -131,6 +183,7 @@ event_logging(hdfs_message * msg, tw_lp * lp)
     default:
       printf("\t%-4s","Unknown event type, please check! ... ... ... ...\n");
     }
+
 }
 
 void
@@ -142,7 +195,8 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
   tw_event *e;
   hdfs_message *m;
 
-  event_logging(msg, lp);
+  event_logging(s, msg, lp);
+  event_logging_f(s, msg, lp);
 
   switch(msg->msg_core.type)
     {
@@ -278,6 +332,7 @@ rc_event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 void
 final(hdfs_state * s, tw_lp * lp)
 {
+  fclose(s->logfile);
   //wait_time_avg += ((s->waiting_time / (double) s->landings) / nlp_per_pe);
 }
 
@@ -306,6 +361,7 @@ const tw_optdef app_opt [] =
 int main(int argc, char **argv, char **env)
 {
   int i;
+   
   
   tw_opt_add(app_opt);
   tw_init(&argc, &argv);
@@ -331,6 +387,6 @@ int main(int argc, char **argv, char **env)
     }
 
   tw_end();
-	
+
   return 0;
 }

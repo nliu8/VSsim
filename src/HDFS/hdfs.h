@@ -45,6 +45,9 @@ typedef struct
   int pkt_send_counter;
   int pkt_recv_counter;
   int data_node_ID;
+
+  FILE * logfile;
+
 }hdfs_state;
 
 typedef struct
