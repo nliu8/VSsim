@@ -6,6 +6,44 @@ mapping(tw_lpid gid)
   return (tw_peid) gid / g_tw_nlp;
 }
 
+inline void prep_src(msg_body *msg)
+{
+  int i;
+  for (i=0;i<PATH_DEPTH;i++)
+    msg->src_pid[i]=MSG_SRC_NULL;
+}
+
+inline void pop_src(msg_body *msg, int * id)
+{
+  int i=0 ;
+  if (msg->src_pid[0]==MSG_SRC_NULL)
+    printf("No src ID found, nothing to pop, bye\n");
+  else
+    while(msg->src_pid[i] != MSG_SRC_NULL)
+      i++;
+  *id = msg->src_pid[i-1];
+  msg->src_pid[i-1]=MSG_SRC_NULL;
+}
+
+inline void push_src(msg_body *msg, int * id)
+{
+  int i=0 ;
+  if (msg->src_pid[PATH_DEPTH-1] != MSG_SRC_NULL)
+    printf("Max stack size reached, please increase PATH_DEPTH\n");
+  else
+    while( msg->src_pid[i] != MSG_SRC_NULL )
+      i++;
+  msg->src_pid[i] = *id;
+}
+
+inline void show_src(msg_body *msg)
+{
+  int i;
+  for (i=0;i<PATH_DEPTH;i++)
+    printf("Src stack [%d] is %d\n",i,msg->src_pid[i]);
+}
+
+
 void
 init(hdfs_state * s, tw_lp * lp)
 {
@@ -23,21 +61,30 @@ init(hdfs_state * s, tw_lp * lp)
    */
 
   //printf("Init, my id is %d\n",lp->gid);
-
   // each client initiate a write request
+
+  s->pkt_send_counter = 0;
+  s->pkt_recv_counter = 0;
+  s->data_node_ID = tw_rand_integer(lp->rng, 1, N_DATANODES) + N_CLIENTS + N_NAMENODES - 1;
+
+
+  printf("I am node %d and my associated data node ID is %d\n",lp->gid,s->data_node_ID);
 
   if (lp->gid < N_CLIENTS)
     {
       e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, MEAN_REQUEST), lp);
       m = tw_event_data(e);
       m->msg_core.type = HDFS_WRITE_START;
-	
-      m->msg_core.src_pid = lp->gid;
+ 
+      //m->msg_core.src_pid[0] = lp->gid;
+      prep_src( &m->msg_core);
+      push_src( &m->msg_core, &lp->gid);
+      //show_src( &m->msg_core);
       // name node comes right after clients
+      // name node Pid is N_CLIENTS
       m->msg_core.dst_pid = N_CLIENTS;
 	
       tw_event_send(e);
-
     }
 }
 
@@ -52,9 +99,10 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 
   switch(msg->msg_core.type)
     {
+      
     case HDFS_WRITE_START:
       {
-	printf("Message %d arrive at send\n", msg->msg_core.src_pid);
+	printf("Message %d arrive at send\n", msg->msg_core.src_pid[0]);
 	e = tw_event_new(msg->msg_core.dst_pid, 10, lp);
 	m = tw_event_data(e);
 	m->msg_core = msg->msg_core;
@@ -69,34 +117,92 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	// This message is received at Name Node
 	if (lp->gid == N_CLIENTS)
 	  {
-	    printf("Hey I am message %d  and my dest is %d\n",msg->msg_core.src_pid,lp->gid);
-	    e = tw_event_new(msg->msg_core.src_pid, 10, lp);
+	    printf("Hey I am message %d  and my dest is %d\n",lp->gid,msg->msg_core.src_pid[0]);
+	    e = tw_event_new(msg->msg_core.src_pid[0], 10, lp);
 	    m = tw_event_data(e);
 	    m->msg_core = msg->msg_core;
 
-	    m->msg_core.src_pid = lp->gid;
+	    m->msg_core.src_pid[0] = lp->gid;
 	    m->msg_core.type = HDFS_WRITE_SET_UP_ACK;
-	    tw_event_send(e);
-	    
+	    tw_event_send(e);	    
 	  }
 	else
-	  printf("Message is not at the right router, Please chdfsk!\n");
+	  printf("Message is not at the right router, Please check!\n");
 
 	break;
       }
 
     case HDFS_WRITE_SET_UP_ACK:
       {
-	printf("At %d one message RECV from %d\n",
-	       lp->gid,
-	       msg->msg_core.src_lid);
-	/* s->landings++; */
-	/* s->waiting_time += msg->waiting_time; */
+	printf("At %d one message RECV from %d\n", lp->gid, msg->msg_core.src_lid);
 
-	/* e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, MEAN_DEPARTURE), lp); */
-	/* m = tw_event_data(e); */
-	/* m->type = DEPARTURE; */
-	/* tw_event_send(e); */
+	e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, WRITE_SET_UP_PREP_TIME), lp);
+	m = tw_event_data(e);
+	m->msg_core = msg->msg_core;
+
+	m->msg_core.type = HDFS_WRITE_DATA_SEND;
+	tw_event_send(e);
+
+	break;
+      }
+
+    case HDFS_WRITE_DATA_SEND:
+      {
+
+	if (s->pkt_send_counter < Write_Request_size/Pkt_size)
+	  {
+	    // split request to packet
+	    s->pkt_send_counter++;
+	    e = tw_event_new(lp->gid, Pkt_size/Buffer_Copy_rate, lp);
+	    m = tw_event_data(e);
+	    m->msg_core = msg->msg_core;	    
+
+	    m->msg_core.type = HDFS_WRITE_DATA_SEND;
+	    tw_event_send(e);
+
+	    // each packet corresponds to a real send
+	    // pick random data node
+	    e = tw_event_new(s->data_node_ID, Pkt_size/Buffer_Copy_rate, lp);
+            m = tw_event_data(e);
+            m->msg_core = msg->msg_core;
+
+            m->msg_core.type = HDFS_WRITE_DATA_SEND_ACK;
+	    m->msg_core.src_pid[0] = lp->gid;
+            tw_event_send(e);
+
+	  }
+
+	break;
+      }
+
+    case HDFS_WRITE_DATA_SEND_ACK:
+      {
+
+	// split request to packet
+	e = tw_event_new(msg->msg_core.src_pid[0], Pkt_size/Buffer_Copy_rate, lp);
+	m = tw_event_data(e);
+	m->msg_core = msg->msg_core;
+
+	m->msg_core.type = HDFS_WRITE_DONE;
+	tw_event_send(e);
+
+	break;
+      }
+
+    case HDFS_WRITE_DONE:
+      {
+	s->pkt_recv_counter++;
+	if ( s->pkt_recv_counter == Write_Request_size/Pkt_size )
+	  {
+	    printf("Write finished at %d\n",lp->gid);
+	    /* // split request to packet */
+	    /* e = tw_event_new(msg_core.src_pid[0], Pkt_size/Buffer_Copy_rate, lp); */
+	    /* m = tw_event_data(e); */
+
+	    /* m->msg_core = msg->msg_core; */
+	    /* m->msg_core.type = HDFS_WRITE_DONE; */
+	    /* tw_event_send(e); */
+	  }
 	break;
       }
 
