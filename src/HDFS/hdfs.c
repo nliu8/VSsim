@@ -52,7 +52,8 @@ init(hdfs_state * s, tw_lp * lp)
   /*   } */
 
   
-  if (lp->gid < N_CLIENTS)
+  //if (lp->gid < N_CLIENTS)
+  if (lp->gid == 0)
     {
       e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, MEAN_REQUEST), lp);
       m = tw_event_data(e);
@@ -130,7 +131,7 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	//show_dst(&m->msg_core);
 	for (i=0;i<N_REPLICA;i++)
 	  push_dst(&m->msg_core,&s->data_node_ID[i]);
-	//show_dst(&m->msg_core);
+	show_dst(&m->msg_core);
 	//pop_dst(&m->msg_core,&dest_lp);
 	//m->msg_core.replica_counter++;
 
@@ -164,16 +165,14 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	    m->msg_core = msg->msg_core;
 	    m->msg_core.type = HDFS_WRITE_SOCKET_SET_UP_ACK;
 	    tw_event_send(e);
-
 	  }
-
+	break;
       }
 
     case HDFS_WRITE_SOCKET_SET_UP_ACK:
       {
 	if (msg->msg_core.replica_counter==0)
 	  {
-
 	    e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, WRITE_SET_UP_PREP_TIME), lp);
 	    m = tw_event_data(e);
 	    m->msg_core = msg->msg_core;
@@ -193,7 +192,7 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	    tw_event_send(e);
 
 	  }
-	
+	break;
       }
 
     case HDFS_WRITE_DATA_SEND:

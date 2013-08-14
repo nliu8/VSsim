@@ -41,6 +41,17 @@ event_logging_f(hdfs_state *s, hdfs_message * msg, tw_lp * lp)
 	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DONE","Vtime: ",tw_now(lp));
 	break;
       }
+    case HDFS_WRITE_SOCKET_SET_UP:
+      {
+	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SOCKET_SET_UP","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_SOCKET_SET_UP_ACK:
+      {
+	fprintf(s->logfile,"\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SOCKET_SET_UP_ACK","Vtime: ",tw_now(lp));
+	break;
+      }
+
     default:
       fprintf(s->logfile,"\t%-4s","Unknown event type, please check! ... ... ... ...\n");
     }
@@ -88,6 +99,17 @@ event_logging(hdfs_state *s, hdfs_message * msg, tw_lp * lp)
 	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_DONE","Vtime: ",tw_now(lp));
 	break;
       }
+    case HDFS_WRITE_SOCKET_SET_UP:
+      {
+	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SOCKET_SET_UP","Vtime: ",tw_now(lp));
+	break;
+      }
+    case HDFS_WRITE_SOCKET_SET_UP_ACK:
+      {
+	printf("\t%-4s %-6d %-15s %-40s %-6s %6f\n","LP: ",lp->gid,"EventType:","HDFS_WRITE_SOCKET_SET_UP_ACK","Vtime: ",tw_now(lp));
+	break;
+      }
+
     default:
       printf("\t%-4s","Unknown event type, please check! ... ... ... ...\n");
     }

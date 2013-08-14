@@ -10,7 +10,7 @@
 
 #define MAX_N_STRIPES 4
 #define Write_Request_size 4 //MB
-#define Pkt_size 0.5
+#define Pkt_size 4
 #define Buffer_Copy_rate 0.4 
 #define WRITE_SET_UP_PREP_TIME 10
 
