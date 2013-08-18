@@ -6,7 +6,7 @@
 #define N_CLIENTS 3
 #define N_NAMENODES 1
 #define N_DATANODES 8
-#define N_REPLICA 1
+#define N_REPLICA 3
 
 #define MAX_N_STRIPES 4
 #define Write_Request_size 4 //MB
