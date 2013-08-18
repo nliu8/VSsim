@@ -52,8 +52,7 @@ init(hdfs_state * s, tw_lp * lp)
   /*     printf("I am node %d and my associated data node ID is %d\n",lp->gid,s->data_node_ID[i]); */
   /*   } */
 
-  
-  //if (lp->gid < N_CLIENTS)
+  //if (lp->gid < s->namenode_id)
   if (lp->gid == 0)
     {
       e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, MEAN_REQUEST), lp);
@@ -106,7 +105,10 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	// This message is received at Name Node
 	if (lp->gid == s->namenode_id)
 	  {
-	    e = tw_event_new(msg->msg_core.src_pid[0], 10, lp);
+
+	    ts = max(s->NN_timer, tw_now(lp));
+
+	    e = tw_event_new(msg->msg_core.src_pid[0], ts+NN_process_time, lp);
 	    m = tw_event_data(e);
 	    m->msg_core = msg->msg_core;
 
