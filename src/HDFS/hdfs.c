@@ -25,7 +25,8 @@ init(hdfs_state * s, tw_lp * lp)
   char filename[32];
   sprintf(filename,"log/vssim.log.%d",lp->gid);
   s->logfile = fopen (filename,"w");
-
+  s->namenode_id = N_CLIENTS;
+  s->NN_timer = 0;
   //printf("Init, my id is %d\n",lp->gid);
   // each client initiate a write request
 
@@ -61,12 +62,14 @@ init(hdfs_state * s, tw_lp * lp)
  
       //m->msg_core.src_pid[0] = lp->gid;
       prep_src( &m->msg_core);
+      prep_dst( &m->msg_core);
       push_src( &m->msg_core, &lp->gid);
       //show_src( &m->msg_core);
       // name node comes right after clients
       // name node Pid is N_CLIENTS
-      m->msg_core.dst_pid[0] = N_CLIENTS;
 
+      //m->msg_core.dst_pid[0] = s->namenode_id;
+      push_dst( &m->msg_core, &s->namenode_id);
       tw_event_send(e);
     }
 }
@@ -88,7 +91,8 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
       
     case HDFS_WRITE_START:
       {
-	e = tw_event_new(msg->msg_core.dst_pid[0], 10, lp);
+	pop_dst(&msg->msg_core,&dest_lp);
+	e = tw_event_new(dest_lp, 10, lp);
 	m = tw_event_data(e);
 	m->msg_core = msg->msg_core;
 	m->msg_core.type = HDFS_WRITE_SET_UP;
@@ -100,7 +104,7 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
       {
 	// name node gid is after client gid
 	// This message is received at Name Node
-	if (lp->gid == N_CLIENTS)
+	if (lp->gid == s->namenode_id)
 	  {
 	    e = tw_event_new(msg->msg_core.src_pid[0], 10, lp);
 	    m = tw_event_data(e);
@@ -111,7 +115,7 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	    tw_event_send(e);	    
 	  }
 	else
-	  printf("Message is not at the right router, Please check!\n");
+	  printf("\tMessage is not at name node, Please check!\n");
 
 	break;
       }
@@ -177,8 +181,8 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 	    m = tw_event_data(e);
 	    m->msg_core = msg->msg_core;
 	    m->msg_core.type = HDFS_WRITE_DATA_SEND;
-	    //tw_event_send(e);
-	    printf("LP %d Appear\n",lp->gid);
+	    tw_event_send(e);
+	    //printf("LP %d Appear\n",lp->gid);
 
 	  }
 	else
@@ -218,7 +222,6 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
             m->msg_core.type = HDFS_WRITE_DATA_SEND_ACK;
 	    m->msg_core.src_pid[0] = lp->gid;
             tw_event_send(e);
-
 	  }
 
 	break;
@@ -226,7 +229,6 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
 
     case HDFS_WRITE_DATA_SEND_ACK:
       {
-
 	// split request to packet
 	e = tw_event_new(msg->msg_core.src_pid[0], Pkt_size/Buffer_Copy_rate, lp);
 	m = tw_event_data(e);
@@ -242,16 +244,47 @@ event_handler(hdfs_state * s, tw_bf * bf, hdfs_message * msg, tw_lp * lp)
       {
 	s->pkt_recv_counter++;
 	if ( s->pkt_recv_counter == Write_Request_size/Pkt_size )
-	  {
-	    //printf("Write finished at %d\n",lp->gid);
-	    /* // split request to packet */
-	    /* e = tw_event_new(msg_core.src_pid[0], Pkt_size/Buffer_Copy_rate, lp); */
-	    /* m = tw_event_data(e); */
+	  {	    
+	    // send success msg to NN
+	    e = tw_event_new(s->namenode_id, CLOSE_TIME, lp);
+	    m = tw_event_data(e);
 
-	    /* m->msg_core = msg->msg_core; */
-	    /* m->msg_core.type = HDFS_WRITE_DONE; */
-	    /* tw_event_send(e); */
+	    m->msg_core = msg->msg_core;
+	    push_src(&(m->msg_core),&lp->gid);
+	    m->msg_core.type = HDFS_WRITE_CLOSE;
+	    tw_event_send(e);
 	  }
+	else
+	  printf("\tMessage is not at name node, Please check!\n");
+	break;
+      }
+
+    case HDFS_WRITE_CLOSE:
+      {	    
+	//printf("Close finished at %d\n",lp->gid);
+	// This message is received at Name Node
+	if (lp->gid == s->namenode_id)
+	  {
+	    pop_src(&(msg->msg_core),&dest_lp);
+	    e = tw_event_new(dest_lp, CLOSE_TIME, lp);
+	    m = tw_event_data(e);
+
+	    m->msg_core = msg->msg_core;
+	    m->msg_core.type = HDFS_WRITE_CLOSE_ACK;
+	    tw_event_send(e);
+	  }
+	break;
+      }
+
+    case HDFS_WRITE_CLOSE_ACK:
+      {	    
+	printf("Close finished at %d\n",lp->gid);
+	/* e = tw_event_new(msg_core.src_pid[0], CLOSE_TIME, lp); */
+	/* m = tw_event_data(e); */
+
+	/* m->msg_core = msg->msg_core; */
+	//m->msg_core.type = HDFS_WRITE_CLOSE_ACK;
+	//tw_event_send(e);
 	break;
       }
 

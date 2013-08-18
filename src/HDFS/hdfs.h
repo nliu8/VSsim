@@ -6,17 +6,20 @@
 #define N_CLIENTS 3
 #define N_NAMENODES 1
 #define N_DATANODES 8
-#define N_REPLICA 3
+#define N_REPLICA 1
 
 #define MAX_N_STRIPES 4
 #define Write_Request_size 4 //MB
 #define Pkt_size 4
 #define Buffer_Copy_rate 0.4 
 #define WRITE_SET_UP_PREP_TIME 10
+#define CLOSE_TIME 700
 
 #define PATH_DEPTH 8
 #define MSG_SRC_NULL -1
 #define MSG_DST_NULL -1
+
+#define NN_process_time 20
 
 #define MEAN_REQUEST 30
 
@@ -51,6 +54,10 @@ typedef struct
   int data_node_ID[N_REPLICA];
 
   FILE * logfile;
+
+  int namenode_id;
+  double NN_timer;
+
 
 }hdfs_state;
 
