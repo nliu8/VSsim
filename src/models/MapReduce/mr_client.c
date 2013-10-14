@@ -27,23 +27,17 @@ mr_client_init(mr_client_state * s, tw_lp * lp)
 
   printf("mr_client Success\n");
 
-  // client 1 has a job to submit
-  if (lp->gid == 1)
+  // all clients will submit a job, trigger submit event, 
+  // real remote submit is in VS_MR_CLIENT_SUBMIT_JOB
+  if (lp->gid >= 1)
     {
       e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, 10), lp);
       m = tw_event_data(e);
       m->msg_core.type = VS_MR_CLIENT_SUBMIT_JOB;
- 
+
+      // initialize messages 
       prep_src( &m->msg_core);
       prep_dst( &m->msg_core);
-
-      push_src( &m->msg_core, &lp->gid);
-      //show_src( &m->msg_core);
-      push_dst( &m->msg_core, &s->job_tracker_id);
-
-      // prepare request size
-      // 2 blocks, temp
-      m->msg_size = 128*1024*1024;
 
       tw_event_send(e);
     }
@@ -66,13 +60,33 @@ mr_client_event_handler(mr_client_state * s, tw_bf * bf, mr_client_message * msg
       
     case VS_MR_CLIENT_SUBMIT_JOB:
       {
-	printf("Job submitted at 1 \n");
-	pop_dst(&msg->msg_core,&dest_lp);
-	e = tw_event_new(dest_lp, 10, lp);
+	printf("Msg received at VS_MR_CLIENT_SUBMIT_JOB\n");
+	e = tw_event_new(s->job_tracker_id, tw_rand_exponential(lp->rng, 10), lp);
 	m = tw_event_data(e);
+ 
 	m->msg_core = msg->msg_core;
-	m->msg_core.type = VS_MR_CLIENT_WRITE_SET_UP;
+
+	m->msg_core.type = VS_MR_SERVER_JOB_REGISTRATION;
+
+	push_src( &m->msg_core, &lp->gid);
+	//show_src( &m->msg_core);
+
+	tw_event_send(e);
+
+	break;
+      }
+
+    case VS_MR_CLIENT_SUBMIT_JOB_SUCCESS:
+      {
+	e = tw_event_new(s->job_tracker_id, tw_rand_exponential(lp->rng, 10), lp);
+	m = tw_event_data(e);
+	m->msg_core.type = VS_MR_SERVER_JOB_REGISTRATION;
+	printf("Job registration success from client %d and job id is %d\n",lp->gid,msg->job_ID);
+ 
+	//show_src( &msg->msg_core);
+
 	//tw_event_send(e);
+
 	break;
       }
 

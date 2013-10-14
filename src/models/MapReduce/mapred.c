@@ -1,16 +1,7 @@
 #include "mapred.h"
-#include "mapred_extern.h"
 
 tw_lptype mapred_lps[] =
 {
-  {
-    (init_f) mr_client_init,
-    (event_f) mr_client_event_handler,
-    (revent_f) mr_client_rc_event_handler,
-    (final_f) mr_client_final,
-    (map_f) mr_client_mapping,
-    sizeof(mr_client_state),
-  },
   {
     (init_f) mr_server_init,
     (event_f) mr_server_event_handler,
@@ -19,6 +10,14 @@ tw_lptype mapred_lps[] =
     (map_f) mr_server_mapping,
     sizeof(mr_server_state),
   },
+  {
+    (init_f) mr_client_init,
+    (event_f) mr_client_event_handler,
+    (revent_f) mr_client_rc_event_handler,
+    (final_f) mr_client_final,
+    (map_f) mr_client_mapping,
+    sizeof(mr_client_state),
+  },
   {0},
 };
 
@@ -26,7 +25,6 @@ const tw_optdef app_opt [] =
 {
   TWOPT_GROUP("Mapred Model"),
   TWOPT_UINT("nplanes", planes_per_mapred, "initial # of planes per mapred(events)"),
-  //TWOPT_STIME("mean", mean_flight_time, "mean flight time for planes"),
   TWOPT_UINT("memory", opt_mem, "optimistic memory"),
   TWOPT_END()
 };
@@ -34,8 +32,7 @@ const tw_optdef app_opt [] =
 int main(int argc, char **argv, char **env)
 {
   int i;
-   
-  
+     
   tw_opt_add(app_opt);
   tw_init(&argc, &argv);
   
@@ -46,10 +43,9 @@ int main(int argc, char **argv, char **env)
 
   printf("g tw nlp is %d and nlp per pe is %d\n\n",g_tw_nlp,nlp_per_pe);
 
-  tw_lp_settype(0, &mapred_lps[1]);
+  tw_lp_settype(0, &mapred_lps[0]);
   for(i = 1; i < g_tw_nlp; i++)
-    tw_lp_settype(i, &mapred_lps[0]);
-
+    tw_lp_settype(i, &mapred_lps[1]);
 
   tw_run();
 

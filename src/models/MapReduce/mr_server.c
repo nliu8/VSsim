@@ -20,33 +20,13 @@ mr_server_init(mr_server_state * s, tw_lp * lp)
 
   char filename[32];
 
-  printf("JT success\n");
+  printf("JT success, id is %d\n",lp->gid);
 
   s->job_tracker_id = 0;
 
   s->pkt_send_counter = 0;
   s->pkt_recv_counter = 0;
 
-  // client 1 has a job to submit
-  if (lp->gid == 1)
-    {
-      e = tw_event_new(lp->gid, tw_rand_exponential(lp->rng, 10), lp);
-      m = tw_event_data(e);
-      m->msg_core.type = VS_MR_SERVER_SUBMIT_JOB;
- 
-      prep_src( &m->msg_core);
-      prep_dst( &m->msg_core);
-
-      push_src( &m->msg_core, &lp->gid);
-      //show_src( &m->msg_core);
-      push_dst( &m->msg_core, &s->job_tracker_id);
-
-      // prepare request size
-      // 2 blocks, temp
-      m->msg_size = 128*1024*1024;
-
-      //tw_event_send(e);
-    }
 }
 
 void
@@ -63,16 +43,22 @@ mr_server_event_handler(mr_server_state * s, tw_bf * bf, mr_server_message * msg
 
   switch(msg->msg_core.type)
     {
-      
-    case VS_MR_SERVER_SUBMIT_JOB:
+
+    case VS_MR_SERVER_JOB_REGISTRATION:
       {
-	printf("Job submitted at 1 \n");
-	pop_dst(&msg->msg_core,&dest_lp);
-	e = tw_event_new(dest_lp, 10, lp);
+	// upon receiving a message, the job tracker will increment the job counter 
+	s->job_counter++;
+
+	pop_src(&msg->msg_core,&dest_lp);
+	printf("One job submitted from client %d\n",dest_lp);
+	e = tw_event_new(dest_lp, SERVER_JOB_REGISTRATION_PROCESSING_TIME, lp);
 	m = tw_event_data(e);
+
 	m->msg_core = msg->msg_core;
-	m->msg_core.type = VS_MR_SERVER_WRITE_SET_UP;
-	//tw_event_send(e);
+	m->msg_core.type = VS_MR_CLIENT_SUBMIT_JOB_SUCCESS;
+	m->job_ID = s->job_counter;
+
+	tw_event_send(e);
 	break;
       }
 
